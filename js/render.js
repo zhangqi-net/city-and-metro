@@ -2068,13 +2068,25 @@
       if (bb[2] < v.x0 - 6 || bb[0] > v.x1 + 6 || bb[3] < v.y0 - 6 || bb[1] > v.y1 + 6) continue;
       const arr = this.segScreen(cs, under);
       this.segPx.set(s.id, arr);
-      const col = line.color;
+      const openSeg = cs.open !== false;
+      const col = openSeg ? line.color : '#8f949c';
       let alpha = 1, width = lw;
       if (s.type === 'underground') { alpha = U.lerp(0.92, 1, under); width = lw * U.lerp(0.95, 1.05, under); }
       else if (under > 0) alpha = U.lerp(1, 0.35, under);
       if (hlLine && hlLine !== s.line) alpha *= 0.3;
       alpha *= lyrDim;
+      if (!openSeg) alpha *= 0.8;
       this.drawTrack(ctx, cs, arr, col, alpha, width, under, t, this._tunBatch && !(hlLine && hlLine !== s.line));
+      // 在建区段：灰色轨道 + 流动的琥珀虚线，与已开通的线路色区分
+      if (!openSeg) {
+        ctx.globalAlpha = 0.95 * lyrDim;
+        ctx.strokeStyle = '#c8862f';
+        ctx.lineWidth = Math.max(1, width * 0.32);
+        ctx.setLineDash([4, 6]); ctx.lineDashOffset = -this.time * 10;
+        this.strokeArr(ctx, arr);
+        ctx.setLineDash([]); ctx.lineDashOffset = 0;
+        ctx.globalAlpha = 1;
+      }
       // 草案标记
       if (draft) {
         const o = g.net.segments[s.id];

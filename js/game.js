@@ -37,7 +37,7 @@
     g.traffic = { v: CFG.TRAFFIC_MODEL };
     g.net = M.empty();
     g.mapInit = buildInitialNetwork(g);   // 开局既有地铁（东京 1950 年等），只在新建时生成一次，随存档保存
-    g.compiled = M.compile(g.net, g.city);
+    g.compiled = M.compile(g.net, g.city, U.ymIndex(g.clock.y, g.clock.m));
     g.model.setNetwork(g.compiled);
     g.econ = new CM.Economy(g.mode, g.clock.y, g.clock.m);
     g.model.fare = g.econ.fare;
@@ -219,7 +219,7 @@
     yield;
     if (gr.streetsChanged || roadsChanged) { if (roadsChanged) city.updateStreets(); city.buildGraphs(); yield; }
     // 编译与模型刷新分多步执行；this.compiled 与模型网络在同一步内一起替换
-    const C = M.compile(this.net, city);
+    const C = M.compile(this.net, city, this.ym());
     yield;
     yield* model.refreshCityGen(C);
     this.compiled = C;
@@ -383,7 +383,7 @@
   };
   Game.prototype.draftCompiled = function () {
     const d = this.draft; if (!d) return null;
-    if (d.compVer !== d.ver) { d.compiled = M.compile(d.net, this.city); d.compVer = d.ver; }
+    if (d.compVer !== d.ver) { d.compiled = M.compile(d.net, this.city, this.ym()); d.compVer = d.ver; }
     return d.compiled;
   };
   Game.prototype.canConfirm = function () {
@@ -408,9 +408,37 @@
     // 新建、改建与搬迁后的位置成为新的“付费选址”，之后的免费微调以此为基准
     for (const id in d.net.stations) { const s = d.net.stations[id], o = this.net.stations[id]; if (o && !s.site) s.site = [o.x, o.y]; }
     for (const id of ev.siteReset || []) { const s = d.net.stations[id]; if (s) s.site = [s.x, s.y]; }
-    for (const id in d.net.segments) if (!this.net.segments[id]) d.net.segments[id].built = [this.clock.y, this.clock.m];
+    // 各对象本次实付的建设费（按 ref 汇总 construction 项；拆迁、升级、搬迁另计，不参与工期退款）
+    const paidByRef = {};
+    for (const it of ev.items) if (it.kind === 'construction' && it.ref != null) paidByRef[it.ref] = (paidByRef[it.ref] || 0) + it.amount;
+    const nowYm = this.ym();
+    for (const id in d.net.segments) {
+      if (this.net.segments[id]) continue;
+      const sg = d.net.segments[id];
+      sg.built = [this.clock.y, this.clock.m];
+      // 插入车站会拆分既有区段：新 id 继承原区段的工期与已付金额，不重新计工期
+      const viaBase = sg.base && sg.base.length ? this.net.segments[sg.base[0]] : null;
+      if (viaBase) { sg.openAt = viaBase.openAt; sg.paid = viaBase.paid; continue; }
+      if (paidByRef[id] > 0) sg.paid = Math.round(paidByRef[id]);
+      const months = M.buildMonths(M.segGeom(d.net, sg, this.city), sg.type);
+      if (months > 0) sg.openAt = nowYm + months;
+    }
     // 轨道的“已付费长度”：之后的免费小幅调整以此为基准累计
     for (const id in d.net.segments) { const v = ev.paidLen && ev.paidLen[id]; if (v != null) d.net.segments[id].paidLen = Math.round(v); }
+    // 在建区段被拆除：按已付建设费退回一部分（默认 50%）。已开通区段不退款，插入车站引起的拆分也不算拆除
+    const splitFrom = new Set();
+    for (const id in d.net.segments) { const b = d.net.segments[id].base; if (b) for (const x of b) splitFrom.add(x); }
+    let refund = 0;
+    for (const id in this.net.segments) {
+      if (d.net.segments[id] || splitFrom.has(id)) continue;
+      const old = this.net.segments[id];
+      if (old.openAt == null || old.openAt <= nowYm) continue;   // 已开通：沿用原规则，无退款
+      if (old.paid > 0) refund += old.paid * ((CFG.buildTime && CFG.buildTime.refundRatio) || 0.5);
+    }
+    if (refund > 0) {
+      this.econ.refundBuild(refund);
+      this.logEvent({ tag: '建设', title: '在建工程拆除', desc: '取消在建区段，退回建设费 ' + U.fmtMoney(refund) });
+    }
     // 收藏：记下被拆除或改名对象的最新名称（读档后已拆除的收藏仍显示原名）
     const fv = this.favs; fv.names = fv.names || {};
     for (const id of fv.stations) { const s = d.net.stations[id] || this.net.stations[id]; if (s) fv.names[id] = s.name; }
@@ -421,7 +449,7 @@
     this.net = d.net;
     this.netVersion++;
     this.rev++;
-    this.compiled = M.compile(this.net, this.city);
+    this.compiled = M.compile(this.net, this.city, this.ym());
     this.model.cancelPredict();
     // 沿线拆迁减少了人口与就业：立即重算小区人口岗位与出行需求，不等到月度结算
     if (ev.demolitions.length) { this.model.buildZones(); this.model.buildDemand(); }
@@ -537,7 +565,7 @@
     g.model.setDayType(CM.Model.dayType(g.clock.y, g.clock.m, g.clock.d));
     g.model.buildZones(); g.model.buildDemand();
     g.net = s.net;
-    g.compiled = M.compile(g.net, g.city);
+    g.compiled = M.compile(g.net, g.city, U.ymIndex(g.clock.y, g.clock.m));
     g.model.setNetwork(g.compiled);
     g.econ = CM.Economy.restore(s.econ);
     g.model.fare = g.econ.fare;

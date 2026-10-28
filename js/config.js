@@ -126,6 +126,24 @@
       inflation: 0.035,
     },
 
+    // 施工工期（可选）：enabled 为 true 时，新建成区段先“在建”，到 openAt 才投入运营。
+    // 不启用时不写入 openAt，所有既有行为（含旧存档）完全不变。
+    buildTime: {
+      enabled: false,
+      // 月数 = base + perKm × 长度(km) + 障碍物附加；20 km 地下约 54 个月
+      months: {
+        underground: { base: 24, perKm: 1.5 },
+        elevated: { base: 18, perKm: 1.0 },
+        surface: { base: 12, perKm: 0.7 },
+      },
+      waterPerKm: 10,           // 跨水段每公里附加月数
+      hillPerKm: 4,             // 山体段每公里附加月数
+      protectedPerKm: 3,        // 保护建筑下方每公里附加月数
+      railCrossMonths: 3,       // 每处跨越地面铁路
+      minMonths: 12,            // 最短工期
+      refundRatio: 0.5,         // 在建区段拆除时退回已付建设费的比例
+    },
+
     ops: {
       carKmCost: 0.0009,        // 万元/车厢公里（≈9 元）
       stationDaily: { S: 1.5, M: 2.6, L: 4.5 }, // 万元/天

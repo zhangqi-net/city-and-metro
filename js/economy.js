@@ -54,6 +54,12 @@
     this.cur[kind] = (this.cur[kind] || 0) + amount;
     if (!this.isFree()) this.funds += amount;
   };
+  // 在建工程拆除退款：退回现金，并冲减本期建设支出（年表与收支合计按净额显示）
+  Economy.prototype.refundBuild = function (amount) {
+    if (!(amount > 0)) return;
+    if (this.cur) this.cur.construction = (this.cur.construction || 0) - amount;
+    if (!this.isFree()) this.funds += amount;
+  };
   // 价格指数以本地图的价格基年（CFG.econBase）为 1，涨幅可分段
   Economy.prototype.costIndex = function (year) { return U.priceIndex(year, CFG.cost.inflation, CFG.econBase || 1990); };
   Economy.prototype.opsIndex = function (year) { return U.priceIndex(year, CFG.ops.inflation, CFG.econBase || 1990); };
