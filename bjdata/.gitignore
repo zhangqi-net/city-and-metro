@@ -5,6 +5,10 @@ admin6.json
 place.json
 poi.json
 poi2.json
+poi3.json
+mstations.json
+places.json
+failed_tiles.txt
 features.json
 # 本地截图（宣传用，不进 PR）
 shots/

@@ -11,9 +11,9 @@ import glob, json, os, re, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'features.json')
 
-# 与 fetch.py 一致
-W, E = 116.1600, 116.6283
-S, N = 39.7900, 40.0874
+# 与 fetch.py 一致（六环范围）
+W, E = 116.0400, 116.7400
+S, N = 39.6900, 40.1600
 M = 0.02
 S2, W2, N2, E2 = S - M, W - M, N + M, E + M
 
@@ -130,7 +130,7 @@ def main():
     print('合并分块：way %d / node %d' % (len(ways), len(nodes)), flush=True)
 
     feats = {k: [] for k in ('water_poly', 'water_line', 'road', 'rail', 'park', 'wood',
-                             'admin', 'place', 'aeroway', 'coast')}
+                             'admin', 'place', 'aeroway', 'coast', 'mstations')}
 
     # ---------- 线状：way ----------
     for el in ways:
@@ -254,6 +254,24 @@ def main():
             aw = t.get('aeroway')
             if aw in ('runway', 'terminal', 'apron', 'taxiway'):
                 feats['aeroway'].append({'kind': aw, 'ref': t.get('ref', ''), 'name': t.get('name', ''), 'pts': pts})
+
+    # ---------- 地铁/铁路车站节点（坐标校准用） ----------
+    mst = load('mstations.json')
+    seen_st = set()
+    for el in mst.get('elements', []):
+        if el.get('type') != 'node':
+            continue
+        t = el.get('tags') or {}
+        nm = t.get('name', '')
+        if not nm:
+            continue
+        key = nm
+        if key in seen_st:
+            continue
+        seen_st.add(key)
+        feats['mstations'].append({'name': nm, 'lon': round(el['lon'], 6), 'lat': round(el['lat'], 6),
+                                   'subway': t.get('subway') or (t.get('station') == 'subway') or None})
+    print('车站节点 %d' % len(feats['mstations']), flush=True)
 
     with open(OUT, 'w', encoding='utf-8') as f:
         json.dump(feats, f, ensure_ascii=False)

@@ -11,10 +11,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, 'features.json')
 OUT = os.path.abspath(os.path.join(HERE, '..', 'js', 'geo_bj.js'))
 
-# 左上原点（116.160 E, 40.0874 N）；格 250 m；160 x 132 格 = 40 x 33 km
-LON0, LAT0 = 116.1600, 40.0874
+# 左上原点（116.040 E, 40.160 N）；格 250 m；240 x 209 格 = 60 x 52 km（六环范围）
+LON0, LAT0 = 116.0400, 40.1600
 KX, KY = 341.66, 443.84
-W, H = 160, 132
+W, H = 240, 209
 
 CLIP = box(-2.0, -2.0, W + 2.0, H + 2.0)
 T2S = opencc.OpenCC('t2s')
@@ -292,7 +292,7 @@ def main():
     parts = ["'use strict';\n"]
     parts.append('// 由 OpenStreetMap 数据生成（© OpenStreetMap 贡献者，ODbL）。坐标为游戏格（250 m），'
                  '折线为增量编码，1/64 格精度。地名已转为简体中文。\n')
-    parts.append('// 覆盖范围：116.160–116.628 E，39.790–40.087 N（160 × 132 格）。生成脚本见 bjdata/。\n')
+    parts.append('// 覆盖范围：116.040–116.742 E，39.688–40.160 N（240 × 209 格，六环）。生成脚本见 bjdata/。\n')
     parts.append('(function (CM) {\n  (CM.GEOS = CM.GEOS || {}).bj = {\n')
     parts.append('    proj: %s,\n' % js(out['proj']))
     for key in ('water', 'roads', 'rail', 'parks', 'reserves', 'woods', 'admin', 'places'):

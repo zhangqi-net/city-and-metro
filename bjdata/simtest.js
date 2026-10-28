@@ -1,4 +1,4 @@
-// 出行模型冒烟测试：生成 2026 年的北京，跑一遍出行求解，检查全网拥堵与深中通道的 v/c。
+// 出行模型冒烟测试：生成目标年份的北京，跑一遍出行求解，检查全网拥堵与主要道路的 v/c。
 // 用法：node bjdata/simtest.js [年份]
 const fs = require('fs');
 const path = require('path');
@@ -86,7 +86,7 @@ const nmOf = function (L) { const g = L.name ? city.roadGroups[L.name - 1] : nul
 const byName = new Map();
 for (let k = 0; k < road.links.length; k++) {
   const L = road.links[k], nm = nmOf(L);
-  if (!['深中通道', '广深沿江高速', '滨海大道', '深南大道', '北环大道'].includes(nm)) continue;
+  if (!['长安街', '东长安街', '西长安街', '二环', '二环路', '三环', '三环路', '四环', '四环路', '五环', '五环路', '六环', '六环路', '京通快速路', '京藏高速', '机场高速'].includes(nm)) continue;
   const a = 2 * k, v = P.arcVol[a], cap = road.arcCap[a] * capF;
   const base = CM.CFG.road.cap[L.cls] * (L.bridge ? 0.75 : 1) * capF;
   const e = byName.get(nm) || { v: 0, cap: 0, n: 0, max: 0, mul: 0, mulN: 0 };
