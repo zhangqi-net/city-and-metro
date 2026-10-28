@@ -20,10 +20,19 @@
     })();
   </script>
   <link rel="stylesheet" href="css/style.css">
+  <!-- 社区改版标记：本仓库在原作基础上增加了深圳地图，其余内容与原作一致；合并回上游时可整段删除 -->
+  <style>
+    #modnote{bottom:8px;right:10px;font-size:11px;line-height:1;letter-spacing:.02em;opacity:.55;
+      pointer-events:none;user-select:none;position:fixed;z-index:55;padding:4px 7px;border-radius:999px;
+      color:var(--fg, #2b3a4a);background:var(--card, rgba(255,255,255,.72));
+      border:1px solid var(--line, rgba(0,0,0,.12));backdrop-filter:blur(4px)}
+    [data-theme="dark"] #modnote{color:#cbd6e2;background:rgba(22,30,42,.72);border-color:rgba(255,255,255,.14)}
+  </style>
 </head>
 <body>
   <canvas id="map" aria-label="城市地图"></canvas>
   <div id="app"></div>
+  <div id="modnote" title="社区改版：在《城市与地铁》原作上增加深圳地图，其余玩法与内容与原作一致">深圳改版 · 非官方</div>
   <noscript>本游戏需要启用 JavaScript。</noscript>
   <script src="js/util.js"></script>
   <script src="js/config.js"></script>
@@ -40,6 +49,8 @@
   <script src="js/data_tk.js"></script>
   <script src="js/geo_tp.js"></script>
   <script src="js/data_tp.js"></script>
+  <script src="js/geo_sz.js"></script>
+  <script src="js/data_sz.js"></script>
   <script src="js/maps.js"></script>
   <script src="js/facility.js"></script>
   <script src="js/city.js"></script>

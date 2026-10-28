@@ -10,6 +10,8 @@
   const TYPES = {
     rail: { name: '铁路客运站', icon: 'train', p: { hb: 1 }, hub: true, we: 1, L: 0, r: 0.6, group: '交通枢纽' },
     air: { name: '机场', icon: 'plane', p: { hb: 1 }, hub: true, we: 1, L: 0, r: 1.2, group: '交通枢纽' },
+    // 对外门户：城市对外公路通道的深圳侧节点（如深中通道往中山方向），只模拟市内的接驳出行
+    gate: { name: '对外门户', icon: 'road', p: { hb: 1 }, hub: true, we: 1, L: 0, r: 1.2, group: '交通枢纽' },
     uni: { name: '大学', icon: 'school', p: { sc: 1 }, we: 3, L: 1.8, r: 1.0, group: '教育' },
     hosp: { name: '医院', icon: 'hospital', p: { md: 1 }, we: 1, L: 1.8, r: 0.5, group: '医疗' },
     shop: { name: '商圈', icon: 'bag', p: { sh: 0.8, lz: 0.2 }, we: 1.1, L: 1.5, r: 1.0, group: '商业' },

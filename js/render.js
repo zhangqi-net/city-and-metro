@@ -595,14 +595,24 @@
     if (lvl >= 16) { ctx.strokeStyle = GROUND.parkEdge; ctx.lineWidth = px * 1.2; ctx.stroke(pp); }
     // 旧机场跑道
     const ab = city.airportBox;
-    const rw = D.airport && D.airport.runway;
-    if (rw && city.lu.indexOf(LU.AIRPORT) >= 0 && inBox([Math.min(rw[0][0], rw[1][0]), Math.min(rw[0][1], rw[1][1]), Math.max(rw[0][0], rw[1][0]), Math.max(rw[0][1], rw[1][1])], 1)) {
+    // runway 为单条跑道；runways 为多条跑道（宝安机场三条平行跑道按各自启用年份出现）。两者都不改变已有地图的表现
+    const rws = D.airport ? (D.airport.runways || (D.airport.runway ? [D.airport.runway] : null)) : null;
+    const nowY = this.game.clock.y;
+    let drewRw = false;
+    if (rws && rws.length && city.lu.indexOf(LU.AIRPORT) >= 0) {
       // 指定方向的跑道（如伸入海港的启德跑道）
       ctx.lineCap = 'butt';
-      ctx.strokeStyle = GROUND.apron; ctx.lineWidth = 0.55; ctx.beginPath(); ctx.moveTo(rw[0][0], rw[0][1]); ctx.lineTo(rw[1][0], rw[1][1]); ctx.stroke();
-      ctx.strokeStyle = GROUND.runway; ctx.lineWidth = 0.26; ctx.stroke();
-      ctx.strokeStyle = '#f4f4f0'; ctx.lineWidth = Math.max(px, 0.02); ctx.setLineDash([0.3, 0.3]); ctx.stroke(); ctx.setLineDash([]);
-    } else if (ab && city.lu.indexOf(LU.AIRPORT) >= 0 && inBox(ab, 1)) {
+      for (const item of rws) {
+        const rw = item.p || item, ry = item.year || 0;
+        if (ry && nowY < ry) continue;
+        if (!inBox([Math.min(rw[0][0], rw[1][0]), Math.min(rw[0][1], rw[1][1]), Math.max(rw[0][0], rw[1][0]), Math.max(rw[0][1], rw[1][1])], 1)) continue;
+        drewRw = true;
+        ctx.strokeStyle = GROUND.apron; ctx.lineWidth = 0.55; ctx.beginPath(); ctx.moveTo(rw[0][0], rw[0][1]); ctx.lineTo(rw[1][0], rw[1][1]); ctx.stroke();
+        ctx.strokeStyle = GROUND.runway; ctx.lineWidth = 0.26; ctx.stroke();
+        ctx.strokeStyle = '#f4f4f0'; ctx.lineWidth = Math.max(px, 0.02); ctx.setLineDash([0.3, 0.3]); ctx.stroke(); ctx.setLineDash([]);
+      }
+    }
+    if (!drewRw && ab && city.lu.indexOf(LU.AIRPORT) >= 0 && inBox(ab, 1)) {
       const cx = (ab[0] + ab[2]) / 2, len = (ab[3] - ab[1]) * 0.78, y0 = (ab[1] + ab[3]) / 2 - len / 2;
       ctx.fillStyle = GROUND.apron; ctx.fillRect(cx - 1.3, y0 + len * 0.3, 0.9, len * 0.32);
       ctx.fillStyle = GROUND.runway; ctx.fillRect(cx - 0.12, y0, 0.24, len);

@@ -1,0 +1,5 @@
+# 原始数据不入库：体积大，用 fetch.py 重新下载后再跑 extract/build 生成
+guangdong.osm.pbf
+features.json
+# 本地截图（宣传用，不进 PR）
+shots/

@@ -9,13 +9,21 @@ License: Open Data Commons Open Database License (ODbL) 1.0
 License URL: https://opendatacommons.org/licenses/odbl/1-0/
 Included license text: licenses/ODbL-1.0.txt
 
-js/geo_gz.js (Guangzhou), js/geo_hz.js (Hangzhou), js/geo_hk.js (Hong Kong)
-and js/geo_tk.js (Tokyo) contain preprocessed OpenStreetMap geographic data,
+js/geo_gz.js (Guangzhou), js/geo_hz.js (Hangzhou), js/geo_hk.js (Hong Kong),
+js/geo_tk.js (Tokyo), js/geo_tp.js (Taipei) and js/geo_sz.js (Shenzhen)
+contain preprocessed OpenStreetMap geographic data,
 including waterways, roads, railways, green areas, boundaries and place names.
 That database remains available under ODbL 1.0. The game's non-commercial
 license does not add restrictions to rights already granted under ODbL.
 The distributed geographic databases can be obtained from those files in the
 repository or the deployed game; retain attribution and applicable ODbL terms.
+
+js/geo_sz.js 由 szdata/ 下的脚本（fetch.py / extract.py / make_sea.py / build_geo.py）
+从 OpenStreetMap 广东省数据裁剪、投影并简化生成；海岸线、行政区界、道路、铁路、
+绿地与地名均来自 OSM，保留 © OpenStreetMap 贡献者署名与 ODbL 1.0 条款。
+深圳地图的年代表（区域开放年份、道路与桥梁通车年份、地标落成年份、人口与就业规模、
+造价与票价）为本项目依据公开史料与估算整理，不属于 OSM 数据。
+地理数据为现代 OSM 数据配合年代配置的历史近似，不代表任何年份的实测状况。
 
 本项目预处理的 OpenStreetMap 地理数据库继续按 ODbL 1.0 提供。
 游戏的非商业使用条款不限制该数据库原许可授予的权利。

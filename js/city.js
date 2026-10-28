@@ -224,6 +224,24 @@
     const pm = new Uint8Array(FW * FH);
     Geo.fill(pm, FW, FH, FS, Geo.parks);
     this.parkCov = Geo.coverage(pm, FW, FS, W, H);
+    // 尚未开幕的景点：其场地在开幕年份之前不算公园（例如 1990 年的世界之窗、欢乐谷）。
+    // 现代 OSM 的公园面包含这些后来才建成的景区，不扣除会把它们提前画成绿地。
+    const parkCity = this;
+    if (CM.Fac && CM.Fac.list) {
+      const clearR = function (x, y, r) {
+        for (let j = Math.floor(y - r); j <= Math.floor(y + r); j++) for (let i = Math.floor(x - r); i <= Math.floor(x + r); i++) {
+          if (i < 0 || j < 0 || i >= W || j >= H) continue;
+          if (U.dist(i + 0.5, j + 0.5, x, y) <= r + 0.35) parkCity.parkCov[j * W + i] = 0;
+        }
+      };
+      for (const f of CM.Fac.list()) {
+        if (f.t !== 'scenic' && f.t !== 'park' && f.t !== 'stadium' && f.t !== 'venue') continue;
+        const openY = f.lmK >= 0 ? ((D.landmarks[f.lmK] && D.landmarks[f.lmK].year) || 0) : f.open;
+        if (!(openY > CFG.START.y)) continue;
+        if (f.lmK >= 0) { for (const c of parkCity.landmarkCells(D.landmarks[f.lmK])) parkCity.parkCov[c] = 0; }
+        else clearR(f.x, f.y, Math.max(1.2, f.r));
+      }
+    }
     const wd = new Uint8Array(FW * FH);
     Geo.fill(wd, FW, FH, FS, Geo.woods);
     Geo.fill(wd, FW, FH, FS, Geo.reserves);
@@ -436,7 +454,13 @@
       const p = g.ways[0], m = (p.length / 4 | 0) * 2;
       const c = self.cellAt(p[m], p[m + 1]);
       const rg = c >= 0 ? self.regions[self.region[c]] : D.defaultRegion;
-      g.year = rg.scenic || rg.open == null ? CFG.START.y : Math.max(CFG.START.y, rg.open);
+      const base = rg.scenic || rg.open == null ? CFG.START.y : Math.max(CFG.START.y, rg.open);
+      // 未列名道路的默认年份：按等级给一个下限（支路、次干道随建成区一起铺开，不随区域开放立刻出现）；
+      // 立交匝道按 D.rampDefault 再往后推——枢纽立交随所在高快速路一起建成，不会 1990 年就在那儿。
+      // D.roadDefault / D.rampDefault 缺省时行为不变，只影响声明了它们的地图。
+      const byCls = D.roadDefault ? D.roadDefault[g.cls] : 0;
+      const byRamp = (g.flags & 4) && D.rampDefault ? D.rampDefault : 0;
+      g.year = Math.max(base, byCls || 0, byRamp || 0);
     }
     // 填海土地上的道路：不早于该处填海成陆的年份（道路有三成以上的点在填海范围内，或桥梁接到填海土地上）
     const rf = this.reclaimFeats(false);
@@ -809,7 +833,10 @@
       const L = links[k];
       L.id = k;
       L.key = Math.min(L.verts[0], L.verts[L.verts.length - 1]) + '_' + Math.max(L.verts[0], L.verts[L.verts.length - 1]) + '_' + L.verts.length;
-      const cap = CFG.road.cap[L.cls] * (L.bridge ? 0.75 : 1);
+      // 个别路段的通行能力系数（如跨江通道的收费与限行，D.capMul 按路名给出）
+      const grp = D.capMul && L.name ? this.roadGroups[L.name - 1] : null;
+      const cmul = grp ? D.capMul[grp.name] : null;
+      const cap = CFG.road.cap[L.cls] * (L.bridge ? 0.75 : 1) * (cmul || 1);
       const t0 = L.lenM / (CFG.road.speed[L.cls] * 1000 / 60);
       arcFrom[2 * k] = L.a; arcTo[2 * k] = L.b; arcFrom[2 * k + 1] = L.b; arcTo[2 * k + 1] = L.a;
       arcLen[2 * k] = arcLen[2 * k + 1] = L.lenM;
