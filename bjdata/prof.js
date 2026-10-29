@@ -48,9 +48,10 @@ console.log('=== 地图 ' + MAP + '  格 ' + CFG.W + 'x' + CFG.H + ' = ' + (CFG.
 function ms(fn) { const t = process.hrtime.bigint(); const r = fn(); return [Number(process.hrtime.bigint() - t) / 1e6, r]; }
 
 let t = 0;
+const Y0 = (CM.MAPS[MAP] && CM.MAPS[MAP].cfg && CM.MAPS[MAP].cfg.START && CM.MAPS[MAP].cfg.START.y) || 1990;
 const city = new CM.City();
 let d, r;
-[d] = ms(() => city.generate(19900101, 1990));
+[d] = ms(() => city.generate(Y0 * 10000 + 101, Y0));
 console.log('generate            ' + d.toFixed(0).padStart(7) + ' ms');
 console.log('  车行 links=' + city.car.links.length + ' 弧段=' + city.car.nA + ' 节点=' + city.car.nN +
   '  步行节点=' + city.walk.start.length + ' 步行弧=' + city.walk.to.length +
@@ -58,8 +59,8 @@ console.log('  车行 links=' + city.car.links.length + ' 弧段=' + city.car.nA
 
 // 推进到目标年（不计时，只计时最后一年每月）
 let mi = 0;
-for (let y = 1990; y < target; y++) {
-  if (y > 1990) { city.applyReclaim(y); city.applyRoads(y); city.activateLandmarks(y); }
+for (let y = Y0; y < target; y++) {
+  if (y > Y0) { city.applyReclaim(y); city.applyRoads(y); city.activateLandmarks(y); }
   for (let m = 1; m <= 12; m++) {
     mi++;
     const gr = city.growMonth({ year: y + (m - 1) / 12, monthIndex: mi, zoneAccess: null, cellWalk: null, coverage: 0, econ: null });

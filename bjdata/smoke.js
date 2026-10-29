@@ -52,8 +52,9 @@ const target = +(process.argv[2] || 2026);
 CM.useMap('bj');
 const D = CM.DATA;
 const t0 = Date.now();
+const Y0 = (CM.MAPS.bj && CM.MAPS.bj.cfg && CM.MAPS.bj.cfg.START && CM.MAPS.bj.cfg.START.y) || 1999;
 const city = new CM.City();
-city.generate(19900101, 1990);
+city.generate(Y0 * 10000 + 101, Y0);
 console.log('生成耗时 ' + (Date.now() - t0) + ' ms，格数 ' + city.N);
 
 const P = CM.GEOS.bj.proj;
@@ -105,11 +106,11 @@ if (!badAnchor) console.log('  全部 ' + (D.histTasks.length + D.dynTasks.lengt
 // 逐年推进
 console.log('\n--- 逐年推进');
 const tot0 = city.totals();
-console.log('  1990：人口 ' + Math.round(tot0.pop).toLocaleString() + '，岗位 ' + Math.round(tot0.jobs).toLocaleString());
+console.log('  ' + Y0 + '：人口 ' + Math.round(tot0.pop).toLocaleString() + '，岗位 ' + Math.round(tot0.jobs).toLocaleString());
 let land = 0;
 for (let c = 0; c < city.N; c++) if (city.landFrac[c] >= 0.5) land++;
 console.log('  陆地格 ' + land);
-for (let y = 1991; y <= target; y++) {
+for (let y = Y0 + 1; y <= target; y++) {
   const rch = city.applyRoads(y);
   city.activateLandmarks(y);
   for (let k = 0; k < city.regions.length; k++) {

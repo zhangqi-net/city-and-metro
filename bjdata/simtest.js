@@ -40,12 +40,13 @@ for (const f of FILES) eval(fs.readFileSync(path.join(ROOT, 'js', f), 'utf8'));
 const target = +(process.argv[2] || 2026);
 CM.useMap('bj');
 const city = new CM.City();
-city.generate(19900101, 1990);
+const Y0 = (CM.MAPS.bj && CM.MAPS.bj.cfg && CM.MAPS.bj.cfg.START && CM.MAPS.bj.cfg.START.y) || 1999;
+city.generate(Y0 * 10000 + 101, Y0);
 // 按月推进到目标年份（与游戏内一致：逐年开路、开区、落成地标，逐月人口与岗位增长）
 const t0 = Date.now();
 let mi = 0, rebuilt = 0;
-for (let y = 1990; y <= target; y++) {
-  if (y > 1990) {
+for (let y = Y0; y <= target; y++) {
+  if (y > Y0) {
     city.applyReclaim(y); city.applyRoads(y); city.activateLandmarks(y);
     for (let k = 0; k < city.regions.length; k++) {
       const rg = city.regions[k];
