@@ -422,6 +422,9 @@
     econ: { devOffset: -2, money: 1 },   // 出行选择参数：北京 1990 年的发展水平约对应广州样本 1988 年
     cfg: {
       W: 240, H: 209, START: { y: 1990, m: 1, d: 1, minute: 360 },
+      // 性能：地图面积是其他城市的数倍，交通小区放宽到 6×6 格（1.5 km²，其他城市为 4×4 格 / 1 km²），
+      // 并对汽车分配的最短路加 45 分钟上界；两者合计把单次迭代从约 4.5 s 降到约 0.65 s（详见 bjdata/README.md）
+      ZONE: 6, roadTreeLimit: 45,
       // 工作周：1994 年 3 月起隔周双休、1995 年 5 月起全面双休（史实，同内地）
       workWeek: CM.CFG.workWeek,
       growth: Object.assign({}, CM.CFG.growth, {

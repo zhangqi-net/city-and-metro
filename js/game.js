@@ -292,8 +292,9 @@
       if (crossed) {
         yield* this.monthGen();
         const mi = this.ym();
-        // 短跳每月两类都求解；长跳每月轮流求解工作日与周末（每类每 2 个月更新一次，与单一日类型时的更新频率相同）
-        if (months <= 3 || U.ymIndex(this.clock.y, this.clock.m) * 32 + this.clock.d >= tgt) yield* this.model.solveGen(1);
+        // 每月轮流求解工作日与周末（每类每 2 个月更新一次）；最后一月两类都求解，保证跳完后的画面与统计是完整的。
+        // 交通求解是大地图的主要开销（每类日 4 个时段各一次迭代），轮流求解把跳月的求解量减半。
+        if (U.ymIndex(this.clock.y, this.clock.m) * 32 + this.clock.d >= tgt) yield* this.model.solveGen(1);
         else yield* this.model.solveGen(1, [mi % 2 === 0 ? 'wd' : 'we']);
       }
       if ((n & 7) === 0) yield;

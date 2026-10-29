@@ -28,7 +28,7 @@
   City.prototype.zoneOf = function (c) {
     const Z = CFG.ZONE;
     const i = c % this.W, j = (c / this.W) | 0;
-    return ((j / Z) | 0) * (this.W / Z) + ((i / Z) | 0);
+    return ((j / Z) | 0) * Math.ceil(this.W / Z) + ((i / Z) | 0);
   };
 
   // ---------------- 生成 ----------------
@@ -767,7 +767,7 @@
       if (this.eCls[e1] !== this.eCls[e2] || this.eName[e1] !== this.eName[e2]) forced[v] = 1;
     }
     // 小区连接点
-    const Z = CFG.ZONE, ZW = this.W / Z, ZH = this.H / Z;
+    const Z = CFG.ZONE, ZW = Math.ceil(this.W / Z), ZH = Math.ceil(this.H / Z);
     const zoneCand = [];
     for (let zj = 0; zj < ZH; zj++) {
       for (let zi = 0; zi < ZW; zi++) {

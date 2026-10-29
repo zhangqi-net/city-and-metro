@@ -37,8 +37,10 @@
       }
     }
     let no = 0;
+    const LIMIT = CFG.roadTreeLimit || 0;   // 有界搜索：堆顶超过该行程时间（分钟）即停止扩张（0 = 全图）
     while (count) {
       const u = values[0], du = keys[0], n = --count;
+      if (LIMIT && du > LIMIT) break;
       heap.lastKey = du;
       if (n > 0) {
         const key = keys[n], val = values[n];
@@ -346,7 +348,8 @@
 
   function Model(city) {
     this.city = city;
-    this.ZW = CFG.W / CFG.ZONE; this.ZH = CFG.H / CFG.ZONE; this.Z = this.ZW * this.ZH;
+    // 网格尺寸除以小区边长后必须向上取整：地图高宽不一定是 CELL 的整数倍（否则最南/最东一行的小区索引会越界）
+    this.ZW = Math.ceil(CFG.W / CFG.ZONE); this.ZH = Math.ceil(CFG.H / CFG.ZONE); this.Z = this.ZW * this.ZH;
     this.BW = Math.ceil(this.ZW / 2); this.BH = Math.ceil(this.ZH / 2); this.B = this.BW * this.BH;
     const norm = function (prof) { const s = prof.reduce(function (a, b) { return a + b; }, 0); return prof.map(function (v) { return v / s; }); };
     this.profiles = { wd: norm(CFG.hourProfile.slice()), we: norm((CFG.hourProfileWe || CFG.hourProfile).slice()) };
