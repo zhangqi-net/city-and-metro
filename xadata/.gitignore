@@ -1,0 +1,16 @@
+# 原始 OSM 数据不入库：体积大，用 fetch.py 重新下载后再跑 extract/build 生成
+tile_*.json
+admin.json
+admin6.json
+place.json
+poi.json
+poi2.json
+poi3.json
+mstations.json
+places.json
+failed_tiles.txt
+features.json
+# Python 缓存
+__pycache__/
+*.pyc
+tile_*_g*.json
