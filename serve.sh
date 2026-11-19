@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # City & Metro 本地服务控制脚本
-# 用法: ./serve.sh <start|stop|restart|status|open|log>
+# 用法: ./serve.sh <start|stop|restart|status|open|log|serve>
+#   serve = 前台运行，供后台任务管理器 / launchd 托管（避免 nohup 进程被工具会话回收）
 # 环境变量: CM_PORT（默认 8123）, CM_HOST（默认 127.0.0.1，设 0.0.0.0 可让局域网/手机访问）
 
 set -u
@@ -66,6 +67,13 @@ case "${1:-start}" in
     echo "已停止 PID $p"
     ;;
   restart) "$0" stop; sleep 0.5; "$0" start ;;
+  serve)
+    # 前台常驻：由外部进程管理器（后台任务 / launchd）托管，退出即停
+    gen_py
+    echo $$ > "$PIDF"
+    echo "前台服务启动 PID $$  $(url)" | tee -a "$LOG"
+    exec python3 "$PYF"
+    ;;
   status)
     p="$(running_pid)"
     if [ -z "$p" ]; then echo "未运行 (端口 $PORT)"; exit 1; fi
