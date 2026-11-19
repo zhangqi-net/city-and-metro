@@ -14,3 +14,6 @@ features.json
 __pycache__/
 *.pyc
 tile_*_g*.json
+# 官方 /map 通道的备份与断点标记（fetch_osm.py）
+backup_overpass/
+.done_osm_*

@@ -107,42 +107,51 @@ def main():
     failed = []
     for (i, j, w, s, e, n) in tiles:
         fn = os.path.join(OUT, 'tile_%d_%d.json' % (i, j))
-        if os.path.exists(fn) and os.path.getsize(fn) > 2:
-            print('[%d,%d] 已存在，跳过' % (i, j), flush=True)
+        gfns = [os.path.join(OUT, 'tile_%d_%d_g%d.json' % (i, j, k))
+                for k in range(len(GROUP_QUERIES))]
+        # 早期版本直接落完整 tile、没有分片缓存：视为已完成，避免重复抓 3 组
+        if (os.path.exists(fn) and os.path.getsize(fn) > 2
+                and not any(os.path.exists(g) for g in gfns)):
             done += 1
             continue
         print('[%d,%d] %.4f,%.4f - %.4f,%.4f' % (i, j, w, s, e, n), flush=True)
-        merged, seen, ok = [], set(), True
+        ok = True
         for k, (gname, optional, gq) in enumerate(GROUP_QUERIES):
-            gfn = os.path.join(OUT, 'tile_%d_%d_g%d.json' % (i, j, k))
-            # 阈值不能太大：可选组失败时写的是 {"elements":[]}（16 B），否则每轮都会重抓该组
+            gfn = gfns[k]
+            # 阈值不能太大：可选组失败时写的是 {"elements":[]}（16 B）
             if os.path.exists(gfn) and os.path.getsize(gfn) > 2:
-                with open(gfn, encoding='utf-8') as f:
-                    d = json.load(f)
                 print('    %s 组已缓存' % gname, flush=True)
-            else:
-                q = gq.format(s='%.5f' % s, w='%.5f' % w, n='%.5f' % n, e='%.5f' % e, to=120)
-                print('    抓取 %s 组...' % gname, flush=True)
-                try:
-                    d = post(q, timeout=200, attempts=3 if optional else 8)
-                except Exception as ex:
-                    if optional:
-                        print('    ! %s 组缺失，用空结果继续（可删除 %s 后重跑补抓）' % (gname, os.path.basename(gfn)), flush=True)
-                        d = {'elements': []}
-                    else:
-                        print('    × %s 组失败，本块留待重跑：%s' % (gname, ex), flush=True)
-                        ok = False
-                        break
-                with open(gfn, 'w', encoding='utf-8') as f:
-                    json.dump(d, f, ensure_ascii=False)
+                continue
+            q = gq.format(s='%.5f' % s, w='%.5f' % w, n='%.5f' % n, e='%.5f' % e, to=120)
+            print('    抓取 %s 组...' % gname, flush=True)
+            try:
+                d = post(q, timeout=200, attempts=3 if optional else 8)
+            except Exception as ex:
+                if optional:
+                    # 不写空缓存：下轮会重抓；成功但确实 0 要素的查询才会落缓存（有效结果）
+                    print('    ! %s 组失败，本轮跳过，下轮重试' % gname, flush=True)
+                    continue
+                else:
+                    print('    × %s 组失败，本块留待重跑：%s' % (gname, ex), flush=True)
+                    ok = False
+                    break
+            with open(gfn, 'w', encoding='utf-8') as f:
+                json.dump(d, f, ensure_ascii=False)
+        if not ok:
+            failed.append((i, j))
+            continue
+        # 每轮都重新合并：新补到的组会并入完整 tile，底图逐轮变完整
+        merged, seen = [], set()
+        for gfn in gfns:
+            if not (os.path.exists(gfn) and os.path.getsize(gfn) > 2):
+                continue
+            with open(gfn, encoding='utf-8') as f:
+                d = json.load(f)
             for el in d.get('elements', []):
                 key = (el.get('type'), el.get('id'))
                 if key not in seen:
                     seen.add(key)
                     merged.append(el)
-        if not ok:
-            failed.append((i, j))
-            continue
         with open(fn, 'w', encoding='utf-8') as f:
             json.dump({'elements': merged}, f, ensure_ascii=False)
         print('    [%d,%d] 合并完成 %d 要素' % (i, j, len(merged)), flush=True)
