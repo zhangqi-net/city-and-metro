@@ -11,11 +11,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, 'features.json')
 OUT = os.path.abspath(os.path.join(HERE, '..', 'js', 'geo_xa.js'))
 
-# 左上原点（108.790 E, 34.410 N）；格 250 m；120 x 120 格 = 30 x 30 km（绕城高速内）
-# KX = 111.32 km/deg * cos(34.27°) / 0.25 km = 368.05；KY = 111.32 / 0.25 = 445.28
-LON0, LAT0 = 108.7900, 34.4100
+# 左上原点（108.627 E, 34.4775 N）；格 250 m；180 x 180 格 = 45 x 45 km（西安—咸阳都市区）
+# KX = 111.32 km/deg * cos(34.28°) / 0.25 km = 368.05；KY = 111.32 / 0.25 = 445.28
+LON0, LAT0 = 108.6270, 34.4775
 KX, KY = 368.05, 445.28
-W, H = 120, 120
+W, H = 180, 180
 
 CLIP = box(-2.0, -2.0, W + 2.0, H + 2.0)
 T2S = opencc.OpenCC('t2s')
@@ -295,7 +295,7 @@ def main():
     parts = ["'use strict';\n"]
     parts.append('// 由 OpenStreetMap 数据生成（© OpenStreetMap 贡献者，ODbL）。坐标为游戏格（250 m），'
                  '折线为增量编码，1/64 格精度。地名已转为简体中文。\n')
-    parts.append('// 覆盖范围：108.790–109.116 E，34.140–34.410 N（120 × 120 格，西安绕城高速以内）。生成脚本见 xadata/。\n')
+    parts.append('// 覆盖范围：108.627–109.116 E，34.0725–34.4775 N（180 × 180 格，西安—咸阳都市区）。生成脚本见 xadata/。\n')
     parts.append('(function (CM) {\n  (CM.GEOS = CM.GEOS || {}).xa = {\n')
     parts.append('    proj: %s,\n' % js(out['proj']))
     for key in ('water', 'roads', 'rail', 'parks', 'reserves', 'woods', 'admin', 'places'):

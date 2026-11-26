@@ -2,17 +2,18 @@
 # -*- coding: utf-8 -*-
 """西安地图 OSM 抓取：分块从 Overpass 拉取水系/道路/铁路/绿地与地名，支持断点续传。
 
-范围覆盖西安绕城高速（G3002）以内主城区（120 x 120 格，每格 250 m，约 30 x 30 km）：
-西到后卫寨 / 三桥，东到纺织城 / 灞河，北到西安北站 / 保税区，南到韦曲南 / 航天新城。
-西咸新区与咸阳国际机场在范围之外（机场以图内西北角接驳点近似表示）。
+范围覆盖西安—咸阳都市区（180 x 180 格，每格 250 m，约 45 x 45 km）：
+西到咸阳市区 / 咸阳西站，东到纺织城 / 灞河，北到咸阳国际机场（T1-T3 / T5），
+南到常宁宫（2 号线南端终点）。旧 120 x 120 格网的 16 块 tile 存的是原始经纬度、
+投影在 build_geo.py 阶段才做，重映射 (i+2, j+1) 后原样复用。
 """
 import json, os, sys, time, urllib.parse, urllib.request, urllib.error
 
-# 地图范围（绕城高速内，约 120 x 120 格，每格 250 m）
-W, E = 108.7900, 109.1160
-S, N = 34.1400, 34.4100
+# 地图范围（西安—咸阳都市区，约 180 x 180 格，每格 250 m）
+W, E = 108.6270, 109.1160
+S, N = 34.0725, 34.4775
 
-NX, NY = 4, 4
+NX, NY = 6, 6
 OUT = os.path.dirname(os.path.abspath(__file__))
 UA = 'city-metro-map-builder/1.0 (personal non-commercial game map)'
 
@@ -68,6 +69,29 @@ METRO_STATION_QUERY = """[out:json][timeout:{to}];
   node["railway"="subway_entrance"]({s},{w},{n},{e});
 );
 out;"""
+
+# 一次性补抓：老城（明城墙内）与咸阳市区的 tertiary 干道。
+# 引擎 ROAD_CLS 原本只收录 motorway/trunk/primary/secondary，老城东西南北大街、
+# 解放路等 OSM 标 tertiary 的主干道整条被过滤掉（对比高德瓦片确认缺失）。
+# 单独小 bbox 查询，extract.py 里按名称/范围提升等级，避免全图 tertiary 泛滥。
+TERTIARY_QUERY = """[out:json][timeout:{to}];
+(
+  way["highway"~"^(tertiary|tertiary_link)$"]({s},{w},{n},{e});
+);
+out geom;"""
+
+# 老城（明城墙）bbox：WGS-84 约 108.918–108.982 E, 34.238–34.292 N
+OLDCITY_BBOX = (108.918, 108.982, 34.238, 34.292)   # w, e, s, n
+# 咸阳市区 bbox（含秦都区/渭城区核心）
+XIANYANG_BBOX = (108.640, 108.775, 34.295, 34.375)
+# 机场周边
+AIRPORT_BBOX = (108.730, 108.830, 34.415, 34.478)
+
+EXTRA_AREAS = [
+    ('oldcity',  OLDCITY_BBOX),
+    ('xianyang', XIANYANG_BBOX),
+    ('airport',  AIRPORT_BBOX),
+]
 
 
 def post(query, timeout=300, attempts=8):
@@ -182,6 +206,22 @@ def main():
             continue
         print('抓取%s' % name, flush=True)
         d = post(q.format(s='%.5f' % s2, w='%.5f' % w2, n='%.5f' % n2, e='%.5f' % e2, to=300), timeout=420)
+        with open(fn, 'w', encoding='utf-8') as f:
+            json.dump(d, f, ensure_ascii=False)
+
+    # 一次性补抓 tertiary 干道（老城 / 咸阳市区 / 机场周边）→ tile_extra_*.json
+    for tag, (bw, be, bs, bn) in EXTRA_AREAS:
+        fn = os.path.join(OUT, 'tile_extra_%s.json' % tag)
+        if os.path.exists(fn) and os.path.getsize(fn) > 2:
+            print('tertiary(%s) 已存在，跳过' % tag, flush=True)
+            continue
+        print('补抓 tertiary 干道：%s' % tag, flush=True)
+        q = TERTIARY_QUERY.format(s='%.5f' % bs, w='%.5f' % bw, n='%.5f' % bn, e='%.5f' % be, to=180)
+        try:
+            d = post(q, timeout=260, attempts=6)
+        except Exception as ex:
+            print('  ! tertiary(%s) 失败，重跑本脚本续抓：%s' % (tag, ex), flush=True)
+            continue
         with open(fn, 'w', encoding='utf-8') as f:
             json.dump(d, f, ensure_ascii=False)
     print('全部完成', flush=True)

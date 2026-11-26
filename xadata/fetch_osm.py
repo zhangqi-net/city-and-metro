@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-W, E, S, N = 108.7900, 109.1160, 34.1400, 34.4100
+W, E, S, N = 108.6270, 109.1160, 34.0725, 34.4775
 NX = NY = 4
 UA = 'city-metro-map-builder/1.0 (personal non-commercial game map)'
 URL = 'https://api.openstreetmap.org/api/0.6/map?bbox='

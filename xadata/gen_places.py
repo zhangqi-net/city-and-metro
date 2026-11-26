@@ -14,7 +14,7 @@ import json, os, sys, time, urllib.parse, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'places.json')
-BBOX = (34.12, 108.77, 34.43, 109.14)   # s, w, n, e（绕城高速内，略放宽）
+BBOX = (34.05, 108.60, 34.49, 109.13)   # s, w, n, e（西安—咸阳都市区，略放宽）
 MIRRORS = ['https://overpass-api.de/api/interpreter',
            'https://overpass.private.coffee/api/interpreter']
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))

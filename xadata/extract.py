@@ -11,9 +11,9 @@ import glob, json, os, re, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'features.json')
 
-# 与 fetch.py 一致（西安主城区 + 西咸新区 + 咸阳机场）
-W, E = 108.7900, 109.1160
-S, N = 34.1400, 34.4100
+# 与 fetch.py 一致（西安—咸阳都市区：西咸 / 咸阳市区 / 咸阳机场 / 常宁宫）
+W, E = 108.6270, 109.1160
+S, N = 34.0725, 34.4775
 M = 0.02
 S2, W2, N2, E2 = S - M, W - M, N + M, E + M
 
@@ -52,6 +52,13 @@ for k in ('primary', 'primary_link'):
     ROAD_CLS[k] = (3, k.endswith('_link'))
 for k in ('secondary', 'secondary_link'):
     ROAD_CLS[k] = (2, k.endswith('_link'))
+
+# tertiary 干道：仅按 fetch.py 的 tile_extra_* 区域补抓（老城 / 咸阳市区 / 机场周边）。
+# 对比高德瓦片确认：老城东西南北大街、解放路等主干道 OSM 标 tertiary，整条缺失。
+# 老城内提升为主干道 cls=3（与高德一致）；其余区域按次干道 cls=2 收录。
+TERTIARY_CLS_OLD = 3
+TERTIARY_CLS_NEW = 2
+OLD_CITY_BBOX = (108.918, 108.982, 34.238, 34.292)   # w, e, s, n
 
 WATER_TAGS = {('natural', 'water'), ('waterway', 'riverbank'), ('landuse', 'reservoir')}
 PARK_TAGS = {('leisure', 'park'), ('leisure', 'garden'), ('leisure', 'nature_reserve')}
@@ -149,6 +156,17 @@ def main():
             cls, link = ROAD_CLS[hw]
             flags = (1 if bridge else 0) | (2 if tunnel else 0) | (4 if link else 0)
             feats['road'].append({'name': name, 'cls': cls, 'flags': flags, 'pts': pts})
+            continue
+
+        # tertiary 干道（仅 tile_extra_* 补抓区域有数据）：
+        # 老城内（明城墙 bbox）提升为主干道 cls=3，与高德一致；其余收录为次干道 cls=2
+        if hw in ('tertiary', 'tertiary_link'):
+            in_old = any(OLD_CITY_BBOX[0] <= lo <= OLD_CITY_BBOX[1]
+                         and OLD_CITY_BBOX[2] <= la <= OLD_CITY_BBOX[3] for lo, la in pts)
+            link = hw.endswith('_link')
+            flags = (1 if bridge else 0) | (2 if tunnel else 0) | (4 if link else 0)
+            feats['road'].append({'name': name, 'cls': TERTIARY_CLS_OLD if in_old else TERTIARY_CLS_NEW,
+                                  'flags': flags, 'pts': pts})
             continue
 
         rw = t.get('railway')

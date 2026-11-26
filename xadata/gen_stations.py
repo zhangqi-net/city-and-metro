@@ -13,7 +13,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, 'mstations.json')
 
 # 新投影（与 build_geo.py 一致），输出时一并给出格坐标便于核对
-LON0, LAT0, KX, KY = 108.7900, 34.4100, 368.05, 445.28
+LON0, LAT0, KX, KY = 108.6270, 34.4775, 368.05, 445.28
 
 
 def load():

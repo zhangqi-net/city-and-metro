@@ -3,7 +3,7 @@
 """单独抓取西安地铁车站节点与关键 POI 坐标（WGS-84），输出 xacoords.json 供 data_xa.js 校准。"""
 import json, os, time, urllib.parse, urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
-S, W, N, E = 34.12, 108.77, 34.43, 109.14
+S, W, N, E = 34.05, 108.60, 34.49, 109.13
 B = '%s,%s,%s,%s' % (S, W, N, E)
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 MIRRORS = ['https://overpass-api.de/api/interpreter',
