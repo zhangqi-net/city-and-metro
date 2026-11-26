@@ -1540,6 +1540,8 @@
     const body = h('div', { class: 'set-body single' },
       row('expand', '界面大小', seg('uiScale', [[0.9, '小'], [1, '标准'], [1.15, '大']])),
       row('label', '地图标注', seg('labels', [['all', '全部'], ['stations', '仅车站'], ['none', '关闭']])),
+      row('map', '高德底图', toggle('amapTiles'), '西安地图叠加高德实时底图；需联网，离线自动回退自绘地图'),
+      row('layers', '底图样式', seg('amapStyle', [['road', '道路'], ['satellite', '卫星']]), '仅对启用了高德底图的地图生效'),
       row('car', '车辆与行人', toggle('agents'), '关闭后交通模拟照常进行，只是不显示运动的车辆和行人'),
       row('sound', '声音', toggle('sound', function () { volRows.forEach(function (r) { r.classList.toggle('off', !S.get('sound')); }); })),
       volRow('volume', 'sound', '总音量'),
@@ -1550,7 +1552,7 @@
       h('div', { class: 'card-head' }, h('span', { class: 'badge b-slate' }, ic('gear')), h('h2', null, '设置'), h('span', { class: 'grow' }), h('button', { class: 'iconbtn', 'data-tip': '关闭', 'data-key': 'Esc', onclick: back }, ic('close'))),
       body,
       h('div', { class: 'set-foot' },
-        h('span', { class: 'muted tiny grow' }, '城市与地铁 v' + CFG.GAME_VERSION + ' · 地图 © OpenStreetMap 贡献者'),
+        h('span', { class: 'muted tiny grow' }, '城市与地铁 v' + CFG.GAME_VERSION + ' · 地理数据 © OpenStreetMap 贡献者 · 西安底图 © 高德地图'),
         h('button', { class: 'btn sm ghost', onclick: function () { self.confirm('恢复默认设置？', '所有设置恢复为默认值，存档不受影响。', '恢复默认', function () { S.reset(); self.showSettings(); self.toast('已恢复默认设置', 'info'); }, true, 'gear'); } }, '恢复默认'),
         h('button', { class: 'btn primary sm', onclick: back }, '完成')));
     this.openScreen(card, back);

@@ -7,6 +7,7 @@
   const EX = 2.0 / CFG.CELL_M;               // 米 → 世界单位（夸张）
   const LEVELS = [8, 16, 32, 64];
   const CHUNK_PX = 512;
+  const TILE_GROUND_ALPHA = 0.55;         // 高德瓦片全开时自绘地面的不透明度：让瓦片透出来，同时保留游戏自己的水系/道路/绿地轮廓
   const MAX_H = 5.0;                          // 世界单位（建筑最大高度，含广州塔天线）
   const FONT = '"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif';
   const UNDER_DEPTH = 4;                      // 地下视图中地下线路的视觉下沉倍数
@@ -68,7 +69,67 @@
       trk: { tunnelWater: 'rgba(80,150,225,0.5)', ballast: '#4a4740', sleeper: '#24221e', deck: '#3b4658', parapet: 'rgba(190,210,235,0.7)',
         wall: '#5a6474', pierFoot: 'rgba(150,195,240,0.4)', shadow: '#000000' },
     },
-  };  let TH = THEMES.light, GROUND = TH.ground, PAL = TH.pal;
+  };
+  // ---- 高德风格配色 ----------------------------------------------------------
+  // 仅在地图注册项带 amap 标记时启用（目前为西安）。以原主题为底，只覆盖「地面能看见」的配色，
+  // 其余绘制参数（阴影、建筑、轨道、字体、图层等）沿用原主题，便于跟随上游更新。
+  // 日间：米白底 + 蓝水面 + 淡绿公园 + 橙黄主干道；夜间：深蓝灰底 + 暗金道路 + 冷蓝水面。
+  const clone = function (o) { return JSON.parse(JSON.stringify(o)); };
+  const amapDay = clone(THEMES.light);
+  amapDay.bg = [245, 246, 242]; amapDay.bgUnder = [225, 231, 226];
+  amapDay.fog = [246, 247, 243]; amapDay.cloud = [255, 255, 255];
+  Object.assign(amapDay.ground, {
+    land: '#f5f5f1', farm: ['#eef2e9', '#f1f3ec', '#ebf0e7'], hill: ['#dde5d3', '#d7e0cd', '#e3e9d8'],
+    park: '#cde7c2',
+    urban: { 1: '#f1f0ea', 2: '#f1f0ea', 3: '#f0efe9', 4: '#f1f0ea', 6: '#f0efe9', 10: '#eeefe7', 0: '#f1f0ea' },
+    airport: '#ecebe4', runway: '#d6d3c9', apron: '#e2e0d8',
+    water: '#a8d5f2', bank: '#c6e4f4', glint: 'rgba(255,255,255,0.36)',
+    wood: 'rgba(146,192,136,0.34)', parkEdge: 'rgba(108,168,104,0.28)',
+  });
+  Object.assign(amapDay.road, {
+    local: '#ffffff', localCase: '#e4e2da', coll: '#ffffff', collCase: '#dcd8ce',
+    art: '#ffe3a0', artCase: '#e6bd63', exp: '#ffd06a', expCase: '#dfa94e',
+    expLine: 'rgba(226,178,92,0.55)', bridgeCase: '#b5ab92', tunnel: 'rgba(150,142,126,0.45)',
+    rail: '#ffffff', railCase: '#cbc7bc',
+  });
+  Object.assign(amapDay, {
+    shadow2d: 'rgba(90,96,80,0.10)', bldStroke: 'rgba(120,118,104,0.16)', parkTree: 'rgba(118,172,112,0.48)',
+    ink: '#3d4a42', halo: 'rgba(255,255,255,0.94)', district: '#6b7d6a', landmarkInk: '#4b5e4a',
+    roadInk: '#898d80', lockInk: '#7d887c',
+    stFill: '#ffffff', stInter: '#2b3a30', isoShadow: 'rgba(92,100,80,0.10)',
+    roofOld: [[226, 224, 214], [214, 212, 202]], roofInd: [222, 220, 210],
+    tree: [[126, 180, 118], [104, 162, 100]], trunk: '#8e9582', pier: '#b3b0a2',
+    lm2d: { fill: '#eae9e1', stroke: '#a8ad9b' }, edgeLine: 'rgba(96,110,84,0.12)',
+    peak: { top: [92, 126, 104], base: [218, 226, 208], ridge: 'rgba(64,92,64,0.28)' },
+  });
+  THEMES.amap = amapDay;
+
+  const amapNight = clone(THEMES.dark);
+  amapNight.bg = [20, 28, 39]; amapNight.bgUnder = [10, 16, 24];
+  amapNight.fog = [21, 30, 41]; amapNight.cloud = [52, 68, 88];
+  Object.assign(amapNight.ground, {
+    land: '#1b2634', farm: ['#1b2834', '#1a2631', '#1d2a37'], hill: ['#243239', '#223038', '#27363d'],
+    park: '#1c3a31',
+    urban: { 1: '#202c3a', 2: '#202c3a', 3: '#1f2b39', 4: '#202c3a', 6: '#1f2b39', 10: '#21302f', 0: '#202c3a' },
+    airport: '#222c38', runway: '#39434f', apron: '#2b3540',
+    water: '#17405f', bank: '#20527a', glint: 'rgba(140,190,240,0.16)',
+    wood: 'rgba(38,78,62,0.5)', parkEdge: 'rgba(70,132,100,0.32)',
+  });
+  Object.assign(amapNight.road, {
+    local: '#2f3b4b', localCase: '#161f2c', coll: '#374558', collCase: '#131c28',
+    art: '#6a5a39', artCase: '#241e14', exp: '#7b663c', expCase: '#1c1710',
+    expLine: 'rgba(190,156,90,0.28)', bridgeCase: '#0b111a', tunnel: 'rgba(110,130,160,0.4)',
+    rail: '#5b6676', railCase: '#0d131c',
+  });
+  Object.assign(amapNight, {
+    ink: '#e2eaf4', halo: 'rgba(12,18,28,0.9)', district: '#8ea2b5', landmarkInk: '#a9c4e2',
+    roadInk: '#8d9db0', lockInk: '#95a3b5',
+    lm2d: { fill: '#2c3644', stroke: '#7d93ac' }, edgeLine: 'rgba(160,185,220,0.10)',
+    peak: { top: [46, 80, 78], base: [26, 38, 48], ridge: 'rgba(150,200,210,0.18)' },
+  });
+  THEMES.amapNight = amapNight;
+
+  let TH = THEMES.light, GROUND = TH.ground, PAL = TH.pal;
 
   function Renderer(canvas) {
     this.cv = canvas; this.ctx = canvas.getContext('2d');
@@ -325,12 +386,29 @@
     this._rk = null; this.styleEpoch = g ? Math.floor(g.clock.y / 5) : null; this.styleYear = g ? this.styleEpoch * 5 : null;
   };
   // 切换主题：重建地面与建筑缓存（总览图立即重绘，避免空白）
+  // themeName 始终是 light / dark（界面与设置使用），实际配色由 applyMapTheme 按地图决定。
   Renderer.prototype.setTheme = function (name) {
-    TH = THEMES[name] || THEMES.light; GROUND = TH.ground; PAL = TH.pal;
-    this.th = TH; this.themeName = name;
+    this.themeName = name === 'dark' ? 'dark' : 'light';
+    this.applyMapTheme(true);
+  };
+  // 按「当前地图 + 日夜设置」选择实际配色：带 amap 标记的地图使用高德风格主题，其余沿用原配色。
+  // 地图切换时由 render() 检测 CM.mapId 变化后调用；force 用于主题切换强制重建。
+  Renderer.prototype.applyMapTheme = function (force) {
+    const m = CM.curMap ? CM.curMap() : null;
+    const amap = !!(m && m.amap);
+    const night = this.themeName === 'dark';
+    const key = amap ? (night ? 'amapNight' : 'amap') : (night ? 'dark' : 'light');
+    if (!force && this._themeKey === key) return false;
+    this._themeKey = key;
+    TH = THEMES[key]; GROUND = TH.ground; PAL = TH.pal; this.th = TH;
+    this.amapTheme = amap;
     this.displayedLevel = this.requestedLevel = null;
     this.clearImages(); this.heatKey = ''; this._cgBmp = null;
+    this.labelImage = null; this.textWidths.clear();
+    this.ground.forEach(function (e) { e.stale = true; });
     if (this.game) this.renderOverview(); else this.overviewStale = true;
+    if (CM.AmapTiles) CM.AmapTiles.onTheme(night);
+    return true;
   };
   Renderer.prototype.resize = function () {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -1761,6 +1839,8 @@
     this.resize();
     const ctx = this.ctx, dpr = this.dpr, g = this.game;
     if (!g) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = U.rgb(TH.bg); ctx.fillRect(0, 0, this.cv.width, this.cv.height); return; }
+    // 换地图后重新选配色（高德风格只对带 amap 标记的地图生效）
+    if (this._amapMapId !== CM.mapId) { this._amapMapId = CM.mapId; this.applyMapTheme(); }
     if (g.preview && this.layer !== 'none') this.layer = 'none';   // 开始界面背景没有交通模型，不画分析图层
     this.updateCamera(dt);
     this.markDirty();
@@ -1769,6 +1849,10 @@
     ctx.fillStyle = U.rgb(U.mixc(TH.fog || TH.bg, TH.bgUnder, under));
     ctx.fillRect(0, 0, this.cv.width, this.cv.height);
     const M = this.M, z = this.z;
+    // ---- 高德栅格瓦片背景层：只在 2D / 地表视图淡入，等距与地下视图自动退出 ----
+    // 瓦片是 PNG 图片，仅作视觉底图；geo_*.js 的矢量几何仍参与地形、路网与区域计算，未被替换。
+    const tileA = CM.AmapTiles ? CM.AmapTiles.draw(ctx, this, (1 - t) * (1 - under)) : 0;
+    const groundOverlay = 1 - (1 - TILE_GROUND_ALPHA) * tileA;
     // 可见范围
     const corners = [this.unproject(0, 0), this.unproject(this.w, 0), this.unproject(0, this.h + (t > 0 ? MAX_H * this.hs : 0)), this.unproject(this.w, this.h + (t > 0 ? MAX_H * this.hs : 0))];
     let wx0 = 1e9, wy0 = 1e9, wx1 = -1e9, wy1 = -1e9;
@@ -1777,7 +1861,7 @@
     const tStart = performance.now();
     // ---- 地面 ----
     if (this.overviewStale && !this.overviewJob && (!this.overview || performance.now() - this.overviewAt > 600)) this.renderOverview();
-    const groundAlpha = 1 - 0.68 * under;
+    const groundAlpha = (1 - 0.68 * under) * groundOverlay;
     ctx.globalAlpha = groundAlpha;
     ctx.imageSmoothingEnabled = true;
     const setWorld = () => ctx.setTransform(dpr * M[0] * z, dpr * M[2] * z, dpr * M[1] * z, dpr * M[3] * z, dpr * this.ox, dpr * this.oy);

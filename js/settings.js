@@ -10,6 +10,8 @@
     sound: true, volume: 0.6,   // 总开关与总音量
     trainVol: 0.7, ambVol: 0.6, // 列车音效、城市环境音（v2.0）
     autosave: true,
+    amapTiles: true,      // 高德栅格瓦片背景层（仅带 amap 标记的地图，需联网）
+    amapStyle: 'road',    // road | satellite
   };
   let cur = Object.assign({}, DEF);
   try {
@@ -23,6 +25,12 @@
       const so = JSON.parse(localStorage.getItem('cm1.sound') || 'null'); if (so) { cur.sound = so.enabled !== false; if (isFinite(so.volume)) cur.volume = so.volume; }
     }
   } catch (e) { /* 存储不可用时使用默认值 */ }
+  // URL 参数临时覆盖（不写回本地存档）：?amap=0 关闭瓦片，?amapStyle=satellite 切卫星图
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.has('amap')) cur.amapTiles = q.get('amap') !== '0';
+    if (q.has('amapStyle')) cur.amapStyle = q.get('amapStyle') === 'satellite' ? 'satellite' : 'road';
+  } catch (e) { /* ignore */ }
   const subs = [];
   function save() { try { localStorage.setItem(KEY, JSON.stringify(cur)); } catch (e) { /* ignore */ } }
   const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
@@ -55,6 +63,11 @@
       if (CM.Sound && (!k || k === 'trainVol')) CM.Sound.setTrainVolume(cur.trainVol);
       if (CM.Sound && (!k || k === 'ambVol')) CM.Sound.setAmbVolume(cur.ambVol);
       if (CM.R && (!k || k === 'labels' || k === 'agents')) { CM.R.labelsOn = cur.labels !== 'none'; CM.R.mapLabelsOn = cur.labels === 'all'; CM.R.agentsOn = cur.agents; }
+      if (CM.AmapTiles && (!k || k === 'amapTiles' || k === 'amapStyle' || k === 'theme')) {
+        CM.AmapTiles.setEnabled(cur.amapTiles);
+        CM.AmapTiles.setStyle(cur.amapStyle);
+        CM.AmapTiles.onTheme(Settings.resolvedTheme() === 'dark');
+      }
     },
   };
   if (mq && mq.addEventListener) mq.addEventListener('change', function () { if (cur.theme === 'auto') Settings.apply('theme'); });

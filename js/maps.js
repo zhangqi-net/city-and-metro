@@ -84,24 +84,30 @@
     const G = m.geo, dec = CM.Geo.dec, Wc = m.cfg.W, Hc = m.cfg.H;
     const S = Math.min(640 / Wc, 400 / Hc), cv = document.createElement('canvas');
     cv.width = Math.round(Wc * S); cv.height = Math.round(Hc * S);
-    const c = cv.getContext('2d'), dark = theme === 'dark';
-    c.fillStyle = dark ? '#1b2533' : '#eef3f0'; c.fillRect(0, 0, cv.width, cv.height);
+    const c = cv.getContext('2d'), dark = theme === 'dark', amap = !!m.amap;
+    // 缩略图配色与主渲染主题保持一致：带 amap 标记的地图使用高德风格浅/深两套
+    const C = amap
+      ? (dark ? { bg: '#1b2634', wood: '#20342a', reserve: '#24382e', park: '#1c3a31', water: '#17405f', rail: '#5b6676', road3: '#6a5a39', road4: '#7b663c' }
+              : { bg: '#f5f5f1', wood: '#dcebd4', reserve: '#d4e7c9', park: '#cde7c2', water: '#a8d5f2', rail: '#9aa3ae', road3: '#c8c4b6', road4: '#ffd06a' })
+      : (dark ? { bg: '#1b2533', wood: '#22362f', reserve: '#2a4238', park: '#264034', water: '#2b4f78', rail: '#5b6676', road3: '#6f7b8c', road4: '#b8964a' }
+              : { bg: '#eef3f0', wood: '#dbe9dc', reserve: '#c9dfcc', park: '#cfe6cf', water: '#a9cdeb', rail: '#9aa3ae', road3: '#c4ccd6', road4: '#f0b54a' });
+    c.fillStyle = C.bg; c.fillRect(0, 0, cv.width, cv.height);
     c.setTransform(S, 0, 0, S, 0, 0);
     const poly = function (rows, col) {
       c.fillStyle = col; c.beginPath();
       for (const row of rows) for (let k = 1; k < row.length; k++) { if (typeof row[k] !== 'string') continue; const p = dec(row[k], 1); c.moveTo(p[0], p[1]); for (let q = 2; q < p.length; q += 2) c.lineTo(p[q], p[q + 1]); }
       c.fill('evenodd');
     };
-    poly(G.woods || [], dark ? '#22362f' : '#dbe9dc');
-    poly(G.reserves || [], dark ? '#2a4238' : '#c9dfcc');
-    poly(G.parks || [], dark ? '#264034' : '#cfe6cf');
-    poly((G.water || []).filter(function (r) { return typeof r[1] !== 'number'; }), dark ? '#2b4f78' : '#a9cdeb');
+    poly(G.woods || [], C.wood);
+    poly(G.reserves || [], C.reserve);
+    poly(G.parks || [], C.park);
+    poly((G.water || []).filter(function (r) { return typeof r[1] !== 'number'; }), C.water);
     c.lineCap = 'round'; c.lineJoin = 'round';
-    for (const r of G.water || []) if (typeof r[1] === 'number') { const p = dec(r[2]); c.strokeStyle = dark ? '#2b4f78' : '#a9cdeb'; c.lineWidth = Math.max(r[1], 0.25); c.beginPath(); c.moveTo(p[0], p[1]); for (let q = 2; q < p.length; q += 2) c.lineTo(p[q], p[q + 1]); c.stroke(); }
-    for (const r of G.rail || []) { if (r[1] & 2) continue; const p = dec(r[2]); c.strokeStyle = dark ? '#5b6676' : '#9aa3ae'; c.lineWidth = 0.18; c.beginPath(); c.moveTo(p[0], p[1]); for (let q = 2; q < p.length; q += 2) c.lineTo(p[q], p[q + 1]); c.stroke(); }
+    for (const r of G.water || []) if (typeof r[1] === 'number') { const p = dec(r[2]); c.strokeStyle = C.water; c.lineWidth = Math.max(r[1], 0.25); c.beginPath(); c.moveTo(p[0], p[1]); for (let q = 2; q < p.length; q += 2) c.lineTo(p[q], p[q + 1]); c.stroke(); }
+    for (const r of G.rail || []) { if (r[1] & 2) continue; const p = dec(r[2]); c.strokeStyle = C.rail; c.lineWidth = 0.18; c.beginPath(); c.moveTo(p[0], p[1]); for (let q = 2; q < p.length; q += 2) c.lineTo(p[q], p[q + 1]); c.stroke(); }
     for (const cls of [3, 4]) for (const r of G.roads || []) {
       if (r[1] !== cls || (r[2] & 6)) continue;
-      const p = dec(r[3]); c.strokeStyle = dark ? (cls === 4 ? '#b8964a' : '#6f7b8c') : (cls === 4 ? '#f0b54a' : '#c4ccd6'); c.lineWidth = cls === 4 ? 0.45 : 0.3;
+      const p = dec(r[3]); c.strokeStyle = cls === 4 ? C.road4 : C.road3; c.lineWidth = cls === 4 ? 0.45 : 0.3;
       c.beginPath(); c.moveTo(p[0], p[1]); for (let q = 2; q < p.length; q += 2) c.lineTo(p[q], p[q + 1]); c.stroke();
     }
     thumbs[key] = cv.toDataURL('image/png');
