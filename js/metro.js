@@ -182,23 +182,14 @@
     for (const id in net.segments) if (net.segments[id].line === lineId) out.push(net.segments[id]);
     return out;
   };
-  M.lineTopo = function (net, lineId) {
-    const segs = M.lineSegs(net, lineId);
-    if (!segs.length) return { topo: 'empty', routes: [], stations: [] };
-    const adj = new Map();
-    const addAdj = function (s, seg, o) { if (!adj.has(s)) adj.set(s, []); adj.get(s).push({ seg: seg, other: o }); };
-    for (const sg of segs) { addAdj(sg.a, sg, sg.b); addAdj(sg.b, sg, sg.a); }
-    const nodes = Array.from(adj.keys());
-    const seen = new Set([nodes[0]]), q = [nodes[0]];
-    while (q.length) { const s = q.pop(); for (const e of adj.get(s)) if (!seen.has(e.other)) { seen.add(e.other); q.push(e.other); } }
-    if (seen.size < nodes.length) return { topo: 'invalid', reason: '线路不连通', routes: [], stations: nodes, adj: adj };
-    const E = segs.length, Vn = nodes.length;
+  // 单一连通分量的拓扑求解：原文逻辑，供 lineTopo 在单分量与多分量两种情形下复用
+  const topoSolve = function (adj, nodes, E, net, lineId) {
     let maxDeg = 0; const leaves = [];
     for (const s of nodes) { const d = adj.get(s).length; if (d > maxDeg) maxDeg = d; if (d === 1) leaves.push(s); }
     M.sortIds(leaves);
     const line = net.lines[lineId];
     const orient = function (seg, from) { return { id: seg.id, rev: seg.a !== from }; };
-    if (E === Vn - 1) {
+    if (E === nodes.length - 1) {
       // 树：普通线路或支线
       let root = (line && line.root && leaves.indexOf(line.root) >= 0) ? line.root : null;
       const bfs = function (src) {
@@ -222,9 +213,9 @@
         st.reverse(); sg.reverse();
         routes.push({ st: st, segs: sg, loop: false });
       }
-      return { topo: maxDeg <= 2 ? 'path' : 'branch', routes: routes, stations: nodes, adj: adj, root: root, leaves: leaves };
+      return { topo: maxDeg <= 2 ? 'path' : 'branch', routes: routes, root: root, leaves: leaves };
     }
-    if (E === Vn && maxDeg === 2) {
+    if (E === nodes.length && maxDeg === 2) {
       let start = (line && line.root && adj.has(line.root)) ? line.root : M.sortIds(nodes.slice())[0];
       const st = [start], sg = [];
       let prev = null, cur = start, prevSeg = null;
@@ -237,11 +228,52 @@
         prev = cur; cur = e.other; prevSeg = e.seg;
         if (cur !== start) st.push(cur);
       }
-      return { topo: 'loop', routes: [{ st: st, segs: sg, loop: true }], stations: nodes, adj: adj, root: start };
+      return { topo: 'loop', routes: [{ st: st, segs: sg, loop: true }], root: start, leaves: leaves };
     }
-    return { topo: 'invalid', reason: E === Vn ? '环线上不能再接支线（可另建新线路）' : '线路含多个闭环', routes: [], stations: nodes, adj: adj };
+    return { topo: 'invalid', reason: E === nodes.length ? '环线上不能再接支线（可另建新线路）' : '线路含多个闭环', routes: [] };
   };
-  M.TOPO_NAME = { path: '普通线路', loop: '环线', branch: '支线', empty: '无轨道', invalid: '形态无效' };
+  // now 为当前月序号（U.ymIndex）。省略即视为全部区段已开通，与引入工期之前完全一致。
+  // 工期只开通部分区段时，线路会断成一至多个连通分量，每个分量各自成一条路线（分段开通）。
+  M.lineTopo = function (net, lineId, now) {
+    const all = M.lineSegs(net, lineId);
+    const segs = now == null ? all : all.filter(function (sg) { return M.segOpen(sg, now); });
+    if (!segs.length) return { topo: all.length ? 'building' : 'empty', routes: [], stations: [], building: all.length };
+    const adj = new Map();
+    const addAdj = function (s, seg, o) { if (!adj.has(s)) adj.set(s, []); adj.get(s).push({ seg: seg, other: o }); };
+    for (const sg of segs) { addAdj(sg.a, sg, sg.b); addAdj(sg.b, sg, sg.a); }
+    const nodes = Array.from(adj.keys());
+    // 连通分量
+    const comps = [];
+    const left = new Set(nodes);
+    while (left.size) {
+      const start = left.values().next().value;
+      const comp = [], q = [start];
+      left.delete(start);
+      while (q.length) { const s = q.pop(); comp.push(s); for (const e of adj.get(s)) if (left.has(e.other)) { left.delete(e.other); q.push(e.other); } }
+      comps.push(comp);
+    }
+    if (comps.length === 1) {
+      const r = topoSolve(adj, nodes, segs.length, net, lineId);
+      r.stations = nodes; r.adj = adj;
+      return r;
+    }
+    // 多个分量：每个分量单独求解，路线合并；单站分量不成线，只计入车站
+    const routes = [], stations = [], leaves = [];
+    for (const comp of comps) {
+      stations.push.apply(stations, comp);
+      if (comp.length < 2) continue;
+      const inner = new Set(comp);
+      const adjX = new Map();
+      let eX = 0;
+      for (const s of comp) { const list = adj.get(s).filter(function (e) { return inner.has(e.other); }); adjX.set(s, list); eX += list.length; }
+      const r = topoSolve(adjX, comp, eX / 2, net, lineId);
+      if (r.routes && r.routes.length) routes.push.apply(routes, r.routes);
+      if (r.leaves) leaves.push.apply(leaves, r.leaves);
+    }
+    if (!routes.length) return { topo: 'invalid', reason: '线路不连通', routes: [], stations: nodes, adj: adj };
+    return { topo: 'partial', routes: routes, stations: stations, adj: adj, leaves: M.sortIds(leaves), parts: comps.length };
+  };
+  M.TOPO_NAME = { path: '普通线路', loop: '环线', branch: '支线', empty: '无轨道', invalid: '形态无效', building: '在建', partial: '分段开通' };
 
   // 拆除后线路不连通时自动拆分
   M.normalizeLines = function (net) {
@@ -456,8 +488,9 @@
     return 2 * Math.sqrt(Math.max(1, Lm) / a);
   }
   M.legTime = legTime;
-  M.compile = function (net, city) {
-    const C = { net: net, stations: [], sIndex: new Map(), segs: new Map(), lines: [], routes: [], topo: new Map() };
+  // now 为当前月序号：省略时全部区段视为已开通（与引入工期之前的调用完全一致）
+  M.compile = function (net, city, now) {
+    const C = { net: net, now: now == null ? null : now, stations: [], sIndex: new Map(), segs: new Map(), lines: [], routes: [], topo: new Map(), building: [] };
     const ids = M.sortIds(Object.keys(net.stations));
     ids.forEach(function (id, k) { C.sIndex.set(id, k); C.stations.push(net.stations[id]); });
     for (const id in net.segments) {
@@ -465,12 +498,15 @@
       const A = net.stations[s.a], B = net.stations[s.b];
       if (!A || !B) continue;   // 防御：不完整的区段不参与运营
       const g = M.segGeom(net, s, city);
-      C.segs.set(id, { seg: s, g: g, h: M.heightProfile(g, A.type, s.type, B.type) });
+      const open = M.segOpen(s, now);
+      C.segs.set(id, { seg: s, g: g, h: M.heightProfile(g, A.type, s.type, B.type), open: open, openAt: s.openAt == null ? null : s.openAt });
+      // 在建区段：不参与路线与寻路，供画面与分析使用
+      if (!open) C.building.push({ id: id, seg: s, openAt: s.openAt, built: s.built || null });
     }
     const mc = CFG.metro;
     for (const lid of M.sortIds(Object.keys(net.lines))) {
       const line = net.lines[lid];
-      const tp = M.lineTopo(net, lid);
+      const tp = M.lineTopo(net, lid, now);
       C.topo.set(lid, tp);
       C.lines.push(line);
       if (tp.topo === 'invalid' || tp.topo === 'empty') continue;
@@ -532,6 +568,25 @@
     if (type === 'underground') v += g.hillM / 1000 * C.hillPerKm + g.protM / 1000 * C.protectedPerKm;
     v += M.railCrossCost(g, type);
     return v * ci;
+  };
+  // 施工工期（月）：按建设方式、长度与障碍物折算。未启用时返回 0，调用方据此跳过 openAt 的写入
+  M.buildMonths = function (g, type) {
+    const B = CFG.buildTime;
+    if (!B || !B.enabled) return 0;
+    const D = (B.months && B.months[type]) || (B.months && B.months.underground);
+    if (!D) return 0;
+    let m = D.base + D.perKm * (g.lenM / 1000);
+    m += (B.waterPerKm || 0) * ((g.waterM || 0) / 1000);
+    m += (B.hillPerKm || 0) * ((g.hillM || 0) / 1000);
+    m += (B.protectedPerKm || 0) * ((g.protM || 0) / 1000);
+    m += (B.railCrossMonths || 0) * M.railCrossN(g, type);
+    return Math.max(B.minMonths || 0, Math.round(m));
+  };
+  // 区段是否已投入运营：没有 openAt 的区段（旧档、未启用工期、预置线网）一律视为已开通
+  M.segOpen = function (seg, now) {
+    if (now == null) return true;
+    if (seg.openAt == null) return true;
+    return seg.openAt <= now;
   };
   // 跨越铁路的附加费用（基年价格）：地下线下穿地面铁路、高架线上跨地面或高架铁路，每处按等效长度计
   M.railCrossN = function (g, type) { return type === 'underground' ? (g.railS || 0) : (type === 'elevated' ? (g.railS || 0) + (g.railV || 0) : 0); };
