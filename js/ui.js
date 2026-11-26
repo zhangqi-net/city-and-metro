@@ -1542,6 +1542,7 @@
       row('label', '地图标注', seg('labels', [['all', '全部'], ['stations', '仅车站'], ['none', '关闭']])),
       row('map', '高德底图', toggle('amapTiles'), '西安地图叠加高德实时底图；需联网，离线自动回退自绘地图'),
       row('layers', '底图样式', seg('amapStyle', [['road', '道路'], ['satellite', '卫星']]), '仅对启用了高德底图的地图生效'),
+      row('layers', '清晰底图', toggle('amapClear'), '去掉半透明自绘蒙版：瓦片保持清晰，只叠加游戏自己的路网、水系与绿地（关闭则恢复旧版混合叠加）'),
       row('car', '车辆与行人', toggle('agents'), '关闭后交通模拟照常进行，只是不显示运动的车辆和行人'),
       row('sound', '声音', toggle('sound', function () { volRows.forEach(function (r) { r.classList.toggle('off', !S.get('sound')); }); })),
       volRow('volume', 'sound', '总音量'),

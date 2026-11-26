@@ -311,9 +311,96 @@
 
   // 通胀（CPI）分段：2006 年起，估算（参考全国 CPI 走势）：2006 +1.5%，2008 +5.9%，2011 +5.4%，此后回落
   const INF = [[2006, 0.015], [2008, 0.059], [2009, -0.007], [2011, 0.054], [2012, 0.026], [2015, 0.014], [2019, 0.029], [2021, 0.009], [2023, 0.002], [2025, 0.005]];
+  // ---- 存档迁移：v1（绕城内 120×120）→ v2（西安—咸阳 180×180）------------------
+  // 投影原点由 (108.79E, 34.41N) 移到 (108.627E, 34.4775N)，kx/ky 未变，
+  // 旧世界坐标整体平移 (+60, +30) 格；旧图恰好落在新图 x∈[60,180)、y∈[30,150)。
+  const XA_DX = 60, XA_DY = 30, XA_OW = 120, XA_OH = 120, XA_NW = 180, XA_NH = 180;
+  function xaShiftPair(v) {
+    if (!Array.isArray(v) || v.length < 2) return false;
+    const a = v[0], b = v[1];
+    if (typeof a !== 'number' || typeof b !== 'number') return false;
+    if (a < -1 || a > XA_OW + 1 || b < -1 || b > XA_OH + 1) return false;
+    v[0] = a + XA_DX; v[1] = b + XA_DY;
+    return true;
+  }
+  function xaShiftNet(net) {
+    if (!net) return;
+    for (const id in (net.stations || {})) {
+      const s = net.stations[id]; if (!s) continue;
+      if (typeof s.x === 'number') s.x += XA_DX;
+      if (typeof s.y === 'number') s.y += XA_DY;
+      xaShiftPair(s.site); xaShiftPair(s.p);
+    }
+    for (const id in (net.segments || {})) {
+      const s = net.segments[id]; if (!s) continue;
+      if (Array.isArray(s.pts)) for (const p of s.pts) xaShiftPair(p);
+      xaShiftPair(s.minRxy);
+    }
+  }
+  // 任务里的坐标锚点：只认 [x,y] 形式的坐标对；年份 / 日期 [2006,9] 超出范围，不会被误改
+  function xaShiftTasks(o, depth) {
+    if (!o || typeof o !== 'object' || depth > 8) return;
+    if (Array.isArray(o)) { for (const v of o) xaShiftTasks(v, depth + 1); return; }
+    for (const k in o) {
+      const v = o[k];
+      if ((k === 'x' || k === 'y') && typeof v === 'number' && v >= -1 && v <= XA_OW + 1) {
+        o[k] = v + (k === 'x' ? XA_DX : XA_DY); continue;
+      }
+      if (v && typeof v === 'object') {
+        if ((k === 'at' || k === 'where' || k === 'site' || k === 'pos' || k === 'p' || k === 'pts' || k === 'minRxy')
+          && Array.isArray(v) && v.length >= 2 && typeof v[0] === 'number' && typeof v[1] === 'number'
+          && v[0] >= -1 && v[0] <= XA_OW + 1 && v[1] >= -1 && v[1] <= XA_OH + 1) xaShiftPair(v);
+        else xaShiftTasks(v, depth + 1);
+      }
+    }
+  }
+  function xaMigrate(payload, fromVersion) {
+    if (fromVersion !== 1) return;
+    const U = CM.U, city = payload.city;
+    if (!city) throw new Error('存档缺少城市数据');
+    // 1) 格网数组 120×120 → 180×180：旧区域平移到 (60,30)，新增格子由 City.restore 用生成值回填
+    const KEYS = ['pop', 'jobs', 'bh', 'taken', 'lu', 'street', 'urbanYear'];
+    for (const k of KEYS) {
+      const pk = city[k];
+      if (!pk || !pk.b) throw new Error('存档缺少 ' + k + ' 数据');
+      const old = U.unpackTyped(pk);
+      if (old.length !== XA_OW * XA_OH) throw new Error('存档格网尺寸不符（' + k + '）');
+      const next = new old.constructor(XA_NW * XA_NH);
+      for (let j = 0; j < XA_OH; j++) for (let i = 0; i < XA_OW; i++)
+        next[(j + XA_DY) * XA_NW + i + XA_DX] = old[j * XA_OW + i];
+      city[k] = U.packTyped(next, pk.t);
+    }
+    // 2) 区域 / 地标开放表补齐到新地图长度；新增项按本地图年份开放
+    const year = (payload.clock && payload.clock.y) || 2006;
+    const nReg = data.regions.length + 1;   // + defaultRegion
+    const oo = Array.isArray(city.regionOpen) ? city.regionOpen : [];
+    const od = Array.isArray(city.regionOpenDate) ? city.regionOpenDate : [];
+    const no = new Array(nReg).fill(0), nd = new Array(nReg).fill(null);
+    for (let k = 0; k < Math.min(oo.length, nReg); k++) { no[k] = oo[k] ? 1 : 0; nd[k] = od[k] || null; }
+    for (let k = Math.min(oo.length, nReg); k < nReg; k++) {
+      const rg = k < data.regions.length ? data.regions[k] : (data.defaultRegion || {});
+      const oy = rg && rg.open != null ? rg.open : 2006;
+      if (oy <= year) { no[k] = 1; nd[k] = [oy, 1]; }
+    }
+    city.regionOpen = no; city.regionOpenDate = nd;
+    const ol = Array.isArray(city.landmarkOn) ? city.landmarkOn : [];
+    const nl = new Array((data.landmarks || []).length).fill(0);
+    for (let k = 0; k < Math.min(ol.length, nl.length); k++) nl[k] = ol[k] ? 1 : 0;
+    for (let k = Math.min(ol.length, nl.length); k < nl.length; k++) {
+      const lm = data.landmarks[k], ly = lm && lm.year;
+      nl[k] = ly != null && ly <= year ? 1 : 0;
+    }
+    city.landmarkOn = nl;
+    // 3) 线网与任务里的世界坐标整体平移
+    xaShiftNet(payload.net);
+    xaShiftTasks(payload.tasks, 0);
+    // 4) 标记给 City.restore：新增格子回填本地图生成的初始地形 / 人口
+    city.__xaMigrate = [XA_DX, XA_DY, XA_OW, XA_OH];
+  }
   (CM.MAP_LIST = CM.MAP_LIST || []).push({
     id: 'xa', name: '西安', title: '西安 · 2006', sub: '真实地理 · 2006 年起 · 人民币 · 空网起步 · 含咸阳与机场',
     amap: true,   // 高德风格配色 + 免 Key 高德瓦片背景层（仅视觉层；geo_xa.js 的 OSM 矢量几何仍参与地形与路网计算）
+    migrate: xaMigrate,   // 旧存档（v1 绕城 120×120）自动迁移到 v2 扩图坐标系，无需重开档
     desc: '从 2006 年还没有一公里地铁的西安开始：地图覆盖西安—咸阳都市区约 45 × 45 km、一次性全图开放，2 号线试验段要到 9 月才开工。老城被明城墙完整圈住，高新区刚刚起步，北客站还是农田，大学城在城南，西边隔渭河就是咸阳老城，西北是咸阳国际机场。你要从空白线网画出第一条线，再跟着城市一路向南到常宁宫、向西过渭河进咸阳——而且处处是遗址，地下动土格外贵。',
     facts: [['范围', '西安—咸阳 · 45 km × 45 km'], ['起始', '2006 年'], ['人口', '约 500 万（图幅内，估算）'], ['货币', '人民币（元）'], ['既有地铁', '无（空网起步）'], ['模式', '经营挑战 / 自由建造']],
     modes: ['challenge', 'free'], kind: 'real', mapVersion: 2, scenario: 'xa-2006',

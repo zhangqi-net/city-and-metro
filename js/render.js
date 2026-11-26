@@ -627,23 +627,27 @@
     const i0 = Math.max(0, Math.floor(X0)), j0 = Math.max(0, Math.floor(Y0)), i1 = Math.min(W, Math.ceil(X1)), j1 = Math.min(H, Math.ceil(Y1));
     const px = 1 / lvl;
     const inBox = function (b, m) { return b[2] >= X0 - m && b[0] <= X1 + m && b[3] >= Y0 - m && b[1] <= Y1 + m; };
-    ctx.fillStyle = GROUND.land; ctx.fillRect(X0, Y0, X1 - X0, Y1 - Y0);
-    // 地块底色（按颜色批量）
-    const paths = new Map();
-    const P = function (col) { let p = paths.get(col); if (!p) { p = new Path2D(); paths.set(col, p); } return p; };
-    for (let j = j0; j < j1; j++) {
-      for (let i = i0; i < i1; i++) {
-        const c = j * W + i, L = city.lu[c];
-        let col;
-        if (L === LU.WATER) col = GROUND.farm[0];
-        else if (L === LU.HILL) col = GROUND.hill[Math.floor(U.noise2(i * 0.35, j * 0.35, 5) * 3) % 3];
-        else if (L === LU.AIRPORT) col = GROUND.airport;
-        else if (city.street[c] && L !== LU.PARK) col = GROUND.urban[L] || GROUND.urban[0];
-        else col = GROUND.farm[Math.floor(U.hash2(i >> 1, j >> 1, 3) * 3)];
-        P(col).rect(i - px, j - px, 1 + 2 * px, 1 + 2 * px);
+    // 清晰模式下跳过「整片底色」：这是盖在高德瓦片上最主要的灰白蒙版来源
+    const clearGround = this._tileGround;
+    if (!clearGround) {
+      ctx.fillStyle = GROUND.land; ctx.fillRect(X0, Y0, X1 - X0, Y1 - Y0);
+      // 地块底色（按颜色批量）
+      const paths = new Map();
+      const P = function (col) { let p = paths.get(col); if (!p) { p = new Path2D(); paths.set(col, p); } return p; };
+      for (let j = j0; j < j1; j++) {
+        for (let i = i0; i < i1; i++) {
+          const c = j * W + i, L = city.lu[c];
+          let col;
+          if (L === LU.WATER) col = GROUND.farm[0];
+          else if (L === LU.HILL) col = GROUND.hill[Math.floor(U.noise2(i * 0.35, j * 0.35, 5) * 3) % 3];
+          else if (L === LU.AIRPORT) col = GROUND.airport;
+          else if (city.street[c] && L !== LU.PARK) col = GROUND.urban[L] || GROUND.urban[0];
+          else col = GROUND.farm[Math.floor(U.hash2(i >> 1, j >> 1, 3) * 3)];
+          P(col).rect(i - px, j - px, 1 + 2 * px, 1 + 2 * px);
+        }
       }
+      paths.forEach(function (p, col) { ctx.fillStyle = col; ctx.fill(p); });
     }
-    paths.forEach(function (p, col) { ctx.fillStyle = col; ctx.fill(p); });
     // 夜间：商业中心与混合街区的暖色灯光（按岗位密度分三档）
     if (TH.night && lvl >= 16) {
       const glow = [new Path2D(), new Path2D(), new Path2D()], any = [false, false, false];
@@ -916,7 +920,7 @@
   };
   Renderer.prototype.renderOverview = function () {
     const lvl = 4, cv = makeCanvas(CFG.W * lvl, CFG.H * lvl), ctx = cv.getContext('2d');
-    ctx.fillStyle = GROUND.land; ctx.fillRect(0, 0, cv.width, cv.height);
+    if (!this._tileGround) { ctx.fillStyle = GROUND.land; ctx.fillRect(0, 0, cv.width, cv.height); }
     ctx.fillStyle = GROUND.water;
     const city = this.game.city;
     for (let c = 0; c < city.N; c++) if (city.lu[c] === LU.WATER) ctx.fillRect((c % city.W) * lvl, ((c / city.W) | 0) * lvl, lvl, lvl);
@@ -1852,7 +1856,15 @@
     // ---- 高德栅格瓦片背景层：只在 2D / 地表视图淡入，等距与地下视图自动退出 ----
     // 瓦片是 PNG 图片，仅作视觉底图；geo_*.js 的矢量几何仍参与地形、路网与区域计算，未被替换。
     const tileA = CM.AmapTiles ? CM.AmapTiles.draw(ctx, this, (1 - t) * (1 - under)) : 0;
-    const groundOverlay = 1 - (1 - TILE_GROUND_ALPHA) * tileA;
+    // 清晰模式：瓦片生效时不再用半透明自绘地面盖住瓦片；改为去掉底色块、只把游戏矢量要素不透明叠加，
+    // 避免 OSM 自绘底色与高德瓦片双重成像造成的灰白蒙版 / 模糊感。
+    const tileClear = !!(this.amapTheme && tileA > 0.35 && (!CM.Settings || CM.Settings.get('amapClear') !== false));
+    if (this._tileGround !== tileClear) {
+      this._tileGround = tileClear;
+      this.ground.forEach(function (e) { e.stale = true; });
+      this.overviewStale = true;
+    }
+    const groundOverlay = tileClear ? 1 : 1 - (1 - TILE_GROUND_ALPHA) * tileA;
     // 可见范围
     const corners = [this.unproject(0, 0), this.unproject(this.w, 0), this.unproject(0, this.h + (t > 0 ? MAX_H * this.hs : 0)), this.unproject(this.w, this.h + (t > 0 ? MAX_H * this.hs : 0))];
     let wx0 = 1e9, wy0 = 1e9, wx1 = -1e9, wy1 = -1e9;

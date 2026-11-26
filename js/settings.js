@@ -12,6 +12,7 @@
     autosave: true,
     amapTiles: true,      // 高德栅格瓦片背景层（仅带 amap 标记的地图，需联网）
     amapStyle: 'road',    // road | satellite
+    amapClear: true,      // 清晰底图：瓦片生效时去掉半透明自绘地面蒙版
   };
   let cur = Object.assign({}, DEF);
   try {
@@ -30,6 +31,7 @@
     const q = new URLSearchParams(location.search);
     if (q.has('amap')) cur.amapTiles = q.get('amap') !== '0';
     if (q.has('amapStyle')) cur.amapStyle = q.get('amapStyle') === 'satellite' ? 'satellite' : 'road';
+    if (q.has('amapGround')) cur.amapClear = q.get('amapGround') !== 'blend';
   } catch (e) { /* ignore */ }
   const subs = [];
   function save() { try { localStorage.setItem(KEY, JSON.stringify(cur)); } catch (e) { /* ignore */ } }

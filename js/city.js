@@ -1095,10 +1095,27 @@
   };
   City.prototype.restore = function (s, year) {
     const N = this.N;
+    // 扩图迁移存档：先留一份 generate() 生成的完整新图初始状态，覆盖后把新增格子回填，
+    // 旧区域继续保留玩家进度（见 data_xa.js 的 xaMigrate）。
+    const mig = s.__xaMigrate;
+    const base = mig ? {
+      lu: this.lu, pop: this.pop, jobs: this.jobs, bh: this.bh,
+      taken: this.taken, street: this.street, urbanYear: this.urbanYear
+    } : null;
     const chk = function (a, n) { if (a.length !== n) throw new Error('城市数据尺寸不符'); return a; };
     this.pop = chk(U.unpackTyped(s.pop), N); this.jobs = chk(U.unpackTyped(s.jobs), N); this.bh = chk(U.unpackTyped(s.bh), N);
     this.taken = chk(U.unpackTyped(s.taken), N); this.lu = chk(U.unpackTyped(s.lu), N); this.street = chk(U.unpackTyped(s.street), N);
     this.urbanYear = chk(U.unpackTyped(s.urbanYear), N);
+    if (base) {
+      const ox = mig[0], oy = mig[1], ow = mig[2], oh = mig[3];
+      for (let j = 0; j < this.H; j++) for (let i = 0; i < this.W; i++) {
+        if (i >= ox && i < ox + ow && j >= oy && j < oy + oh) continue;
+        const c = j * this.W + i;
+        this.lu[c] = base.lu[c]; this.pop[c] = base.pop[c]; this.jobs[c] = base.jobs[c];
+        this.bh[c] = base.bh[c]; this.taken[c] = base.taken[c]; this.street[c] = base.street[c];
+        this.urbanYear[c] = base.urbanYear[c];
+      }
+    }
     this.regionOpen = Uint8Array.from(s.regionOpen); this.regionOpenDate = s.regionOpenDate;
     this.landmarkOn = new Uint8Array(D.landmarks.length);
     this.protectedId.fill(0);
